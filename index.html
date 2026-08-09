@@ -1,0 +1,455 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>ZERON TEMP MAIL — Brutalist Template</title>
+<meta name="description" content="One key. Your whole Gmail temp-mail API. Generate aliases, read inbox, grab OTPs, manage mail — powered by the DevZeron Temp Gmail API." />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Archivo+Black&family=Inter:wght@400;700;900&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet" />
+<style>
+:root{
+  --bg:#F2EDE4;
+  --ink:#0b0b0b;
+  --surface:#ffffff;
+  --red:#ff2a00;
+  --yellow:#ffd60a;
+  --green:#12b84a;
+  --bw:3px;
+  --sh:6px;
+  --shadow:var(--sh) var(--sh) 0 0 var(--ink);
+  --shadow-sm:3px 3px 0 0 var(--ink);
+  --font-display:"Archivo Black","Helvetica Neue",Arial,sans-serif;
+  --font-body:"Inter","Helvetica Neue",Arial,sans-serif;
+  --font-mono:"JetBrains Mono","IBM Plex Mono",Courier,monospace;
+  --radius:0px;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{background:var(--bg);color:var(--ink);font-family:var(--font-body);font-size:16px;line-height:1.5;-webkit-font-smoothing:antialiased;overflow-x:hidden}
+a{color:inherit}
+::selection{background:var(--ink);color:var(--bg)}
+:focus{outline:3px solid var(--red);outline-offset:2px}
+:focus:not(:focus-visible){outline:none}
+
+.tag{display:inline-block;font-family:var(--font-mono);font-size:.68rem;letter-spacing:.12em;text-transform:uppercase;border:2px solid var(--ink);padding:2px 6px;background:var(--surface)}
+.tag.red{background:var(--red);color:#fff}
+.tag.yl{background:var(--yellow)}
+code{font-family:var(--font-mono);font-size:.85em;background:var(--yellow);padding:1px 5px;border:1px solid var(--ink)}
+
+/* topbar */
+.topbar{position:sticky;top:0;z-index:60;display:flex;align-items:center;gap:12px;padding:12px 20px;background:var(--bg);border-bottom:var(--bw) solid var(--ink);flex-wrap:wrap}
+.logo{display:flex;align-items:center;gap:10px;font-family:var(--font-display);font-size:1.05rem;letter-spacing:-.01em;text-transform:uppercase}
+.logo-mark{display:grid;place-items:center;width:36px;height:36px;background:var(--yellow);border:var(--bw) solid var(--ink);box-shadow:3px 3px 0 var(--ink)}
+.logo-mark span{font-size:1.4rem;font-weight:900}
+.ver{font-family:var(--font-mono);font-size:.7rem;border:2px solid var(--ink);padding:4px 8px;background:var(--surface);letter-spacing:.06em}
+.top-nav{display:flex;gap:16px;align-items:center;margin-left:auto}
+.top-nav a{font-family:var(--font-mono);font-size:.76rem;text-transform:uppercase;letter-spacing:.08em;text-decoration:none;border-bottom:2px solid transparent;padding-bottom:2px}
+.top-nav a:hover{border-bottom-color:var(--red)}
+.top-nav a.cta{background:var(--red);color:#fff;border:2px solid var(--ink);box-shadow:var(--shadow-sm);padding:6px 12px}
+.top-nav a.cta:hover{border-bottom-color:var(--ink);box-shadow:none}
+.btn-config{border:2px solid var(--ink);background:var(--surface);font-family:var(--font-mono);font-size:.72rem;padding:6px 10px;cursor:pointer;text-transform:uppercase;letter-spacing:.06em;box-shadow:2px 2px 0 var(--ink)}
+.btn-config:hover{transform:translate(-1px,-1px);box-shadow:3px 3px 0 var(--ink)}
+.btn-config:active{transform:translate(2px,2px);box-shadow:none}
+@media(max-width:899px){.top-nav{display:none}}
+
+/* config drawer */
+.config{position:fixed;top:0;right:-430px;width:min(420px,100vw);height:100vh;z-index:80;background:var(--bg);border-left:var(--bw) solid var(--ink);transition:right .18s linear;display:flex;flex-direction:column;box-shadow:-10px 0 0 rgba(0,0,0,.05)}
+.config.open{right:0}
+.config-head{display:flex;justify-content:space-between;align-items:center;padding:14px 16px;border-bottom:var(--bw) solid var(--ink);background:var(--ink);color:var(--bg)}
+.config-head h3{font-family:var(--font-display);text-transform:uppercase;font-size:1rem}
+.config-head button{border:2px solid var(--bg);background:transparent;color:var(--bg);font-family:var(--font-mono);font-size:.8rem;cursor:pointer;padding:2px 8px}
+.config-body{padding:20px 16px;overflow:auto;flex:1}
+.config-body label{display:block;font-family:var(--font-mono);font-size:.72rem;letter-spacing:.1em;text-transform:uppercase;margin:16px 0 6px}
+.config-body input{width:100%;font-family:var(--font-body);font-size:.95rem;padding:10px 12px;border:var(--bw) solid var(--ink);background:var(--surface)}
+.config-body .hint{font-size:.78rem;color:#5b564b;margin-top:5px}
+.btn-yellow{width:100%;background:var(--yellow);border:var(--bw) solid var(--ink);box-shadow:var(--shadow-sm);font-family:var(--font-mono);font-weight:700;text-transform:uppercase;font-size:.85rem;letter-spacing:.1em;padding:12px;cursor:pointer;margin-top:18px;color:var(--ink)}
+.btn-yellow:active{transform:translate(3px,3px);box-shadow:0 0 0 var(--ink)}
+.key-state{display:flex;align-items:center;gap:8px;font-family:var(--font-mono);font-size:.75rem;margin-top:10px;border:2px solid var(--ink);padding:8px 10px;background:var(--surface);flex-wrap:wrap}
+.dot{width:12px;height:12px;border:2px solid var(--ink);background:var(--ink)}
+.dot.ok{background:var(--green)}
+#btnForgetKey{font-family:var(--font-mono);font-size:.68rem;margin-left:auto;border:0;background:transparent;color:var(--red);cursor:pointer;text-decoration:underline}
+.config-backdrop{position:fixed;inset:0;background:rgba(11,11,11,.45);z-index:70;opacity:0;pointer-events:none;transition:opacity .2s linear}
+.config-backdrop.show{opacity:1;pointer-events:auto}
+
+/* marquee */
+.marquee{border-bottom:var(--bw) solid var(--ink);background:var(--yellow);overflow:hidden;display:flex}
+.marquee-inner{display:flex;white-space:nowrap;animation:scroll 26s linear infinite;will-change:transform}
+.marquee span{font-family:var(--font-mono);font-size:.78rem;letter-spacing:.1em;text-transform:uppercase;padding:8px 0;border-right:2px solid var(--ink);padding-right:24px;margin-right:24px}
+@keyframes scroll{to{transform:translateX(-50%)}}
+@media (prefers-reduced-motion:reduce){.marquee-inner{animation:none}}html
+
+/* hero */
+.hero{display:grid;grid-template-columns:minmax(0,1.6fr) minmax(0,.9fr);border-bottom:var(--bw) solid var(--ink)}
+.hero-left{padding:56px 20px;border-right:var(--bw) solid var(--ink)}
+.hero h1{font-family:var(--font-display);font-size:clamp(2.6rem,9vw,7.2rem);line-height:.9;letter-spacing:-.03em;text-transform:uppercase;margin:18px 0 8px}
+.hero h1 em{font-style:normal;background:var(--red);color:#fff;display:inline-block;box-shadow:var(--shadow);padding:0 .12em;transform:rotate(-1.5deg)}
+.hero-sub{font-size:1.05rem;max-width:560px;color:#29261f;font-weight:500}
+.stamp{display:inline-block;background:var(--surface);border:var(--bw) solid var(--ink);box-shadow:var(--shadow-sm);transform:rotate(-2deg);padding:6px 12px;font-family:var(--font-mono);font-size:.72rem;letter-spacing:.12em;text-transform:uppercase;margin-bottom:12px}
+.hero-actions{display:flex;flex-wrap:wrap;gap:16px;margin-top:28px}
+.btn-brutal{font-family:var(--font-mono);font-weight:700;text-transform:uppercase;letter-spacing:.08em;background:var(--yellow);color:var(--ink);border:var(--bw) solid var(--ink);padding:.9em 1.7em;box-shadow:var(--shadow);cursor:pointer;transition:transform 100ms linear,box-shadow 100ms linear;text-decoration:none;font-size:.85rem;display:inline-block}
+.btn-brutal:hover{transform:translate(-2px,-2px);box-shadow:calc(var(--sh)+2px) calc(var(--sh)+2px) 0 0 var(--ink)}
+.btn-brutal:active{transform:translate(var(--sh),var(--sh));box-shadow:0 0 0 0 var(--ink)}
+.btn-brutal.alt{background:var(--surface)}
+.hero-side{display:flex;flex-direction:column}
+.hero-status{display:flex;align-items:center;gap:12px;padding:16px 20px;border-bottom:var(--bw) solid var(--ink);font-family:var(--font-mono);font-size:.8rem;letter-spacing:.08em;text-transform:uppercase;flex-wrap:wrap}
+.status-dot{width:14px;height:14px;border:2px solid var(--ink);background:var(--ink)}
+.status-dot.on{background:var(--green);animation:blink 1.2s steps(2) infinite}
+@keyframes blink{50%{opacity:.35}}
+.hero-terminal{flex:1;background:var(--ink);color:#e8e3d7;font-family:var(--font-mono);font-size:.8rem;padding:18px 16px;display:flex;flex-direction:column;justify-content:space-between;gap:14px}
+.term-line{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.term-line b{color:var(--yellow);font-weight:700}
+.term-line .g{color:#4ff07a}
+.term-flash{color:#8a857a;font-size:.7rem;letter-spacing:.04em}
+.hero-stats{display:grid;grid-template-columns:repeat(3,1fr);border-top:var(--bw) solid var(--ink)}
+.stat{padding:18px 12px;border-right:var(--bw) solid var(--ink);text-align:center}
+.stat:last-child{border-right:0}
+.stat b{font-family:var(--font-display);font-size:1.6rem;display:block}
+.stat span{font-family:var(--font-mono);font-size:.66rem;text-transform:uppercase;letter-spacing:.1em}
+@media(max-width:899px){.hero{grid-template-columns:1fr}.hero-left{border-right:0;border-bottom:var(--bw) solid var(--ink)}}
+
+/* section scaffold */
+.sec-band{font-family:var(--font-display);text-transform:uppercase;font-size:clamp(1.7rem,5.5vw,3.6rem);line-height:.95;letter-spacing:-.02em;padding:26px 20px;border-bottom:var(--bw) solid var(--ink)}
+.sec-band .num{color:var(--red);margin-right:.25em}
+.sec-band .soft{font-family:var(--font-mono);font-size:.78rem;letter-spacing:.12em;color:#5b564b;display:inline-block;transform:translateY(-6px);margin-left:14px}
+.sec-dark{background:var(--ink);color:var(--bg)}
+.sec-dark .num{color:var(--yellow)}
+.sec-dark .soft{color:#8a8f90}
+
+/* bento cards */
+.bento{display:grid;grid-template-columns:repeat(12,1fr)}
+.fcard{border-right:var(--bw) solid var(--ink);border-bottom:var(--bw) solid var(--ink);padding:22px;background:var(--bg)}
+.fcard .fnum{font-family:var(--font-display);font-size:1rem;color:var(--red)}
+.fcard h3{font-family:var(--font-display);text-transform:uppercase;font-size:1.05rem;margin:10px 0 8px;letter-spacing:-.01em}
+.fcard p{font-size:.92rem;color:#2e2a23}
+.fcard.yl{background:var(--yellow);box-shadow:6px 6px 0 var(--ink)}
+.fcard.rd{background:var(--red);color:#fff;box-shadow:6px 6px 0 var(--ink)}
+.fcard.rd p{color:#ffe3dd}
+.fcard.rd .fnum{color:#fff}
+@media(min-width:900px){.fcard{grid-column:span 4}}
+@media(max-width:899px){.fcard{grid-column:span 12;border-right:0}}
+
+/* endpoint matrix */
+.ep-grid{display:grid;grid-template-columns:repeat(12,1fr)}
+.ep-group{grid-column:span 6;border-right:var(--bw) solid var(--ink);border-bottom:var(--bw) solid var(--ink)}
+.ep-group:nth-child(even){border-right:0}
+.ep-head{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:14px 20px;border-bottom:var(--bw) solid var(--ink);font-family:var(--font-mono);font-size:.72rem;letter-spacing:.14em;text-transform:uppercase;background:var(--surface)}
+.ep-head b{font-family:var(--font-display);font-size:.9rem;text-transform:uppercase}
+.ep-card{display:flex;align-items:center;gap:12px;padding:12px 20px;border-bottom:2px solid var(--ink);cursor:pointer;background:var(--bg);transition:background 90ms linear}
+.ep-card:last-child{border-bottom:0}
+.ep-card:hover{background:var(--yellow)}
+.ep-card .ep-path{font-family:var(--font-mono);font-size:.82rem;word-break:break-all;line-height:1.25;flex:1}
+.ep-card .go{font-family:var(--font-mono);font-size:.66rem;text-transform:uppercase;letter-spacing:.08em;background:var(--ink);color:var(--bg);padding:3px 7px}
+.ep-card:hover .go{background:var(--red);color:#fff}
+.ep-note{padding:16px 20px;font-family:var(--font-mono);font-size:.74rem;display:flex;gap:12px;flex-wrap:wrap;align-items:center}
+.ep-note b{letter-spacing:.1em;text-transform:uppercase}
+@media(max-width:899px){.ep-group{grid-column:span 12;border-right:0}}
+.mmethod{display:inline-block;font-family:var(--font-mono);font-size:.68rem;font-weight:700;padding:2px 7px;color:#fff;background:var(--ink)}
+.mmethod.G{background:var(--ink)}
+</style>
+</head>
+<body>
+<!-- ============ TEMPLATE CONFIG : APNI KEBOL EKHANE DUITA VALUE BADLABEN ============
+     PUBLISH CHEAT SHEET:
+     1) API_BASE = apnar API host. Official DevZeron host ta theke deo na thakle apnar nijer
+        deploy er URL diye din. Must end WITHOUT trailing slash.
+     2) API_KEY  = apnar permanent key (key_xxxx). Khali rakhte chaile end-user
+        website er CONFIG panel diye set korte parbe (localStorage e save hobe).
+     Baki sob automatic + config panel e change kora jay.
+     Static host (Vercel / Netlify / GitHub Pages) e ei folder ta drop kore
+     deploy korlei holo — kono server / build dorkar nei.
+   ============================================================================ -->
+<!-- ============================================================
+     TEMPLATE CONFIG — PUBLISH KORTE SHUDHU EI DUITA JINIS BADLAN:
+     1) app.js e TEMPLATE_CONFIG.API_BASE  -> apnar API URL
+     2) app.js e TEMPLATE_CONFIG.API_KEY   -> apnar key (key_xxxx)
+     (athoba sit e giye CONFIG button diye user o set korte parbe)
+     Deploy: static host (Vercel/Netlify/GitHub Pages) e folder drop.
+   ============================================================ -->
+
+<header class="topbar">
+  <div class="logo"><div class="logo-mark"><span>Z!</span></div><span>ZERO TEMP MAIL</span></div>
+  <span class="ver">TEMPLATE v1.0</span>
+  <nav class="top-nav">
+    <a href="#endpoints">ENDPOINTS</a>
+    <a href="#playground">PLAYGROUND</a>
+    <a href="#getkey">GET KEY</a>
+    <a href="#docs">DOCS</a>
+    <a href="#faq">FAQ</a>
+    <a href="#playground" class="cta">TEST LIVE</a>
+  </nav>
+  <button class="btn-config" id="btnConfig" aria-label="Open configuration">CONFIG</button>
+</header>
+
+<div class="marquee" aria-hidden="true">
+  <div class="marquee-inner">
+    <span>NO OAUTH</span><span>KEY-BASED AUTH</span><span>FIREBASE BACKED</span><span>DOT + PLUS ALIASES</span><span>READ INBOX</span><span>GRAB OTP</span><span>BATCH 25x</span><span>UNREAD FILTER</span><span>COUNT TOTALS</span><span>TRASH + FLAGS</span><span>REVOCABLE KEYS</span>
+  </div>
+  <div class="marquee-inner" aria-hidden="true">
+    <span>NO OAUTH</span><span>KEY-BASED AUTH</span><span>FIREBASE BACKED</span><span>DOT + PLUS ALIASES</span><span>READ INBOX</span><span>GRAB OTP</span><span>BATCH 25x</span><span>UNREAD FILTER</span><span>COUNT TOTALS</span><span>TRASH + FLAGS</span><span>REVOCABLE KEYS</span>
+  </div>
+</div>
+
+<!-- HERO -->
+<section class="hero">
+  <div class="hero-left">
+    <div class="stamp">TEMP GMAIL API &middot; KEY-BASED &middot; FREE</div>
+    <h1>ONE KEY.<br>YOUR WHOLE<br><em>GMAIL</em>.</h1>
+    <p class="hero-sub">Drop your Gmail + App Password once. We verify it&rsquo;s real, hand you a permanent <strong>API key</strong> &mdash; then generate aliases, open the inbox, grab OTPs and manage mail with a single header.</p>
+    <div class="hero-actions">
+      <a class="btn-brutal" href="#playground">TEST THE API</a>
+      <a class="btn-brutal alt" href="#getkey">GET FREE KEY</a>
+    </div>
+    <div style="margin-top:22px;display:flex;flex-wrap:wrap;gap:8px">
+      <span class="tag">@DevZeron</span>
+      <span class="tag red">t.me/CodeDevZeron</span>
+      <span class="tag yl">15 endpoints</span>
+    </div>
+  </div>
+  <div class="hero-side">
+    <div class="hero-status"><span class="status-dot" id="statusDot"></span><span id="statusTxt">CHECKING /api/health...</span></div>
+    <div class="hero-terminal">
+      <div>
+        <div class="term-line">$ <b>curl</b> https://.../api/register \</div>
+        <div class="term-line">&nbsp;&nbsp;&nbsp;-d email=you@gmail.com -d pass="..."</div>
+        <div class="term-line" style="margin-top:8px">&nbsp;&nbsp;&check; verified &rarr; issued <b>key_1A2b3C...</b></div>
+        <div class="term-line" style="margin-top:16px">$ <b>curl</b> -H "Authorization: Bearer key_1A2b3C" \</div>
+        <div class="term-line">&nbsp;&nbsp;&nbsp;https://.../api/generate/mixed</div>
+        <div class="term-line" style="margin-top:8px">&nbsp;&nbsp;{ "status": true, "data": { "email": <span class="g">"you+8x9zk2@gmail.com"</span> } }</div>
+      </div>
+      <div class="term-flash">&#9608; every call works from the browser. no secret server, no OAuth dance.</div>
+    </div>
+    <div class="hero-stats"><div class="stat"><b>15</b><span>endpoints</span></div><div class="stat"><b>99.9%</b><span>uptime</span></div><div class="stat"><b>$0</b><span>forever</span></div></div>
+  </div>
+</section>
+
+<!-- HOW IT WORKS -->
+<section id="howto" style="border-bottom:var(--bw) solid var(--ink)">
+  <div class="sec-band">HOW IT WORKS <span class="soft">VERIFY ONCE &rarr; CALL FOREVER</span></div>
+  <div class="bento">
+    <div class="fcard"><span class="fnum">01</span><h3>Register</h3><p>Send <code>email</code> + 16-char App Password to <code>/api/register</code>. We log into Gmail once to confirm it&rsquo;s a real account.</p></div>
+    <div class="fcard yl"><span class="fnum">02</span><h3>Get the Key</h3><p>Real account &rarr; instant permanent <code>key_xxxx&hellip;</code>. From now on you only ever hold the key.</p></div>
+    <div class="fcard"><span class="fnum">03</span><h3>Call Everything</h3><p>Every endpoint takes <code>Authorization: Bearer key_</code> &mdash; generate, read, search, trash, mark read / unread.</p></div>
+  </div>
+</section>
+
+<!-- ENDPOINT MATRIX -->
+<section id="endpoints" style="border-bottom:var(--bw) solid var(--ink)">
+  <div class="sec-band"><span class="num">01/</span>ENDPOINT MATRIX <span class="soft">15 ROADS &middot; ONE KEY</span></div>
+  <div class="ep-grid" id="epGrid"></div>
+  <div class="ep-note">
+    <b>AUTH</b><span>Authorization: Bearer key_xxxx</span>
+    <b>&middot;</b><span>alt header: X-API-Key</span>
+    <b>&middot;</b><span>click any endpoint &rarr; loads into playground</span>
+  </div>
+</section>
+
+<!-- PLAYGROUND -->
+<section id="playground" style="border-bottom:var(--bw) solid var(--ink)">
+  <div class="sec-band sec-dark"><span class="num">02/</span>LIVE PLAYGROUND <span class="soft">PICK AN ENDPOINT &amp; SMASH IT</span></div>
+  <div class="playground" style="background:var(--ink);color:#e8e6d7">
+    <div class="pg-left">
+      <div class="pg-title">REQUEST BUILDER</div>
+      <div class="pg-sub">key: <span id="pgKey" style="color:#4ff07a">none</span> &middot; base: <span id="pgBase"></span></div>
+      <div id="epFilter" style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:14px"></div>
+      <div id="epList" style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:18px"></div>
+      <div id="paramBox"></div>
+      <div id="reqUrl" class="req-line" style="font-family:var(--font-mono);font-size:.72rem;color:#8a8f90;margin-top:12px;word-break:break-all;line-height:1.5"></div>
+      <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-top:16px">
+        <button class="btn-run" id="btnRun">RUN &rarr;</button>
+        <button class="btn-brutal alt" id="btnFill" style="padding:11px 16px;font-size:.8rem;box-shadow:3px 3px 0 var(--ink)" title="Auto-fill example values">AUTO-FILL</button>
+      </div>
+    </div>
+    <div class="pg-right">
+      <div class="pg-title" style="color:var(--yellow)">RESPONSE</div>
+      <div class="pg-sub">status &middot; body &mdash; straight from the API</div>
+      <div class="pg-out">
+        <div class="pg-out-head"><span id="outMeta">READY</span><button class="copy-btn" id="btnCopy">COPY JSON</button></div>
+        <div class="pg-out-body" id="outBody"><span style="color:#6d7272">// pick an endpoint and press RUN...</span></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- GET KEY -->
+<section id="getkey" style="border-bottom:var(--bw) solid var(--ink)">
+  <div class="sec-band"><span class="num">03/</span>GET YOUR KEY <span class="soft">30 SECONDS &middot; REAL GMAIL</span></div>
+  <div>
+    <div>
+      <div class="reg-card">
+        <span class="tag red">BEFORE YOU REGISTER</span>
+        <h3>Make an App Password</h3>
+        <ol style="margin-top:16px;list-style:none">
+          <li><b>1.</b>&nbsp; Turn on <strong>2-Step Verification</strong> &mdash; Google Account &rarr; Security &rarr; 2-Step Verification &rarr; ON.</li>
+          <li><b>2.</b>&nbsp; Open <strong>myaccount.google.com/apppasswords</strong> and create one (16 characters).</li>
+          <li><b>3.</b>&nbsp; Enter Gmail + App Password here, press <strong>GET KEY</strong>.</li>
+          <li><b>4.</b>&nbsp; We verify via IMAP once, then hand you <code>key_xxxx</code> &mdash; revocable anytime.</li>
+        </ol>
+      </div>
+    </div>
+    <div>
+      <form class="reg-form" id="regForm">
+        <h3 style="color:var(--yellow)">REGISTER &rarr; KEY</h3>
+        <div class="pg-sub" style="margin:6px 0 14px">email + app password &rarr; real gmail &rarr; permanent key</div>
+        <label for="regEmail" style="display:block;font-family:var(--font-mono);font-size:1rem">EMAIL ADDRESS</label>
+        <input id="regEmail" type="email" placeholder="you@gmail.com" required />
+        <label for="regPass" style="display:block;font-family:var(--font-mono);font-size:.7rem;margin-top:14px">16-CHAR APP PASSWORD</label>
+        <input id="regPass" type="password" placeholder="abcd wxyz 1234 4567" required />
+        <div style="font-family:var(--font-mono);font-size:.68rem;color:#8a8f90;margin-top:6px">password sent once (only to /api/register), then replaced by your key forever.</div>
+        <button class="reg-btn" type="submit" id="regBtn">GET MY KEY</button>
+        <div class="register-msg" id="regMsg" hidden></div>
+      </form>
+    </div>
+  </div>
+</section>
+
+<!-- RESPONSE FORMAT -->
+<section id="docs" style="border-bottom:var(--bw) solid var(--ink)">
+  <div class="sec-band"><span class="num">04/</span>RESPONSE FORMAT <span class="soft">EVERY CALL &middot; SAME SKELETON</span></div>
+  <div style="padding:24px 20px;border-bottom:var(--bw) solid var(--ink)">
+    <div class="codeblock" id="sampleJson"></div>
+  </div>
+  <div style="display:grid;grid-template-columns:repeat(12,1fr);border-bottom:var(--bw) solid var(--ink)">
+    <div style="grid-column:span 4;border-right:var(--bw) solid var(--ink);padding:18px"><h3 style="font-family:var(--font-display);text-transform:uppercase;font-size:1rem;margin-bottom:6px">Credit on every call</h3><p style="font-size:.9rem"><code>Api_By</code> &amp; <code>Tg_Channel</code> ride along in every response.</p></div>
+    <div style="grid-column:span 4;border-right:var(--bw) solid var(--ink);padding:18px"><h3 style="font-family:var(--font-display);text-transform:uppercase;font-size:1rem;margin-bottom:6px">Keys, not passwords</h3><p style="font-size:.9rem">The only credential you ever send again is <code>key_&hellip;</code></p></div>
+    <div style="grid-column:span 4;padding:18px"><h3 style="font-family:var(--font-display);text-transform:uppercase;font-size:1rem;margin-bottom:6px">Meaningful codes</h3><p style="font-size:.9rem">200 / 400 / 401 / 404 / 429 / 500</p></div>
+  </div>
+</section>
+
+<!-- HTTP STATUS -->
+<section id="status" style="border-bottom:var(--bw) solid var(--ink)">
+  <div class="sec-band"><span class="num">05/</span>HTTP STATUS <span class="soft">KNOW YOUR CODES</span></div>
+  <div style="padding:20px">
+    <table style="width:100%;border-collapse:collapse">
+      <thead><tr style="background:var(--ink);color:var(--bg)"><th style="padding:10px 14px;text-align:left;font-family:var(--font-mono);font-size:.72rem">CODE</th><th style="padding:10px 14px;text-align:left;font-family:var(--font-mono);font-size:.72rem">MEANING</th></tr></thead>
+      <tbody>
+        <tr style="border-top:2px solid var(--ink)"><td style="padding:12px 14px;background:var(--surface);border:2px solid var(--ink);font-family:var(--font-mono)"><code>200</code></td><td style="padding:12px 14px;background:var(--surface);border:2px solid var(--ink)">OK</td></tr>
+        <tr><td style="padding:12px 14px;background:var(--surface);border:2px solid var(--ink);font-family:var(--font-mono)"><code>400</code></td><td style="padding:12px 14px;background:var(--surface);border:2px solid var(--ink)">Bad request / invalid input</td></tr>
+        <tr><td style="padding:12px 14px;background:var(--surface);border:2px solid var(--ink);font-family:var(--font-mono)"><code>401</code></td><td style="padding:12px 14px;background:var(--surface);border:2px solid var(--ink)">Missing / invalid API key</td></tr>
+        <tr><td style="padding:12px 14px;background:var(--surface);border:2px solid var(--ink);font-family:var(--font-mono)"><code>404</code></td><td style="padding:12px 14px;background:var(--surface);border:2px solid var(--ink)">Route not found</td></tr>
+        <tr><td style="padding:12px 14px;background:var(--surface);border:2px solid var(--ink);font-family:var(--font-mono)"><code>429</code></td><td style="padding:12px 14px;background:var(--surface);border:2px solid var(--ink)">Too many register attempts</td></tr>
+        <tr><td style="padding:12px 14px;background:var(--surface);border:2px solid var(--ink);font-family:var(--font-mono)"><code>500</code></td><td style="padding:12px 14px;background:var(--surface);border:2px solid var(--ink)">IMAP / storage failure</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<!-- SECURITY -->
+<section id="security" style="border-bottom:var(--bw) solid var(--ink)">
+  <div class="sec-band"><span class="num">06/</span>SECURITY <span class="soft">BUILT TO PROTECT YOUR MAIL</span></div>
+  <div class="bento">
+    <div class="fcard"><h3>Real verification</h3><p>Register opens imap.gmail.com with your creds. Fake or bad App Passwords never earn a key.</p></div>
+    <div class="fcard yl"><h3>AES-encrypted storage</h3><p>App Passwords are encrypted before they touch Firebase. A database dump reads as ciphertext.</p></div>
+    <div class="fcard"><h3>Rate-limited register</h3><p>Brute-force protection on the register endpoint so keys can&rsquo;t be farmed.</p></div>
+    <div class="fcard"><h3>One-tap revoke</h3><p>Lost your key? <code>GET /api/revoke</code> deletes key + stored data instantly.</p></div>
+    <div class="fcard rd"><h3>Zero secrets in code</h3><p>No hardcoded passwords. Open-source API &mdash; audit it before you trust it.</p></div>
+    <div class="fcard"><h3>Your mail, your rules</h3><p>Only your registered Gmail is ever touched &mdash; via the key you own.</p></div>
+  </div>
+</section>
+
+<!-- FAQ -->
+<section id="faq" style="border-bottom:var(--bw) solid var(--ink)">
+  <div class="sec-band"><span class="num">07/</span>FAQ <span class="soft">QUESTIONS &middot; ANSWERED</span></div>
+  <div id="faqList" style="border-bottom:var(--bw) solid var(--ink)"></div>
+</section>
+
+<!-- FOOTER -->
+<footer style="background:var(--ink);color:var(--bg)">
+  <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;padding:26px 20px;border-bottom:2px solid #333">
+    <div><h4 style="font-family:var(--font-display);text-transform:uppercase;font-size:.95rem;color:var(--yellow);margin-bottom:12px">ZERO TEMP MAIL</h4>
+      <a href="#endpoints">ENDPOINTS</a> <a href="#playground">PLAYGROUND</a> <a href="#getkey">GET KEY</a></div>
+    <div><h4 style="font-family:var(--font-display);text-transform:uppercase;font-size:.95rem;color:var(--yellow);margin-bottom:12px">API</h4>
+      <a href="https://dev-zeron-temp-gmail-api-v1.vercel.app/api/info" target="_blank" rel="noopener">/api/info</a> <a href="https://dev-zeron-temp-gmail-api-v1.vercel.app/api/health" target="_blank" rel="noopener">/api/health</a> <a href="https://github.com/ZeronModz" target="_blank" rel="noopener">github.com/ZeronModz</a></div>
+    <div><h4 style="font-family:var(--font-display);text-transform:uppercase;font-size:.95rem;color:var(--yellow);margin-bottom:12px">CHANNELS</h4>
+      <a href="https://t.me/CodeDevZeron" target="_blank" rel="noopener">@CodeDevZeron</a> <a href="https://t.me/DevZeron" target="_blank" rel="noopener">@DevZeron</a></div>
+  </div>
+  <div style="display:flex;justify-content:space-between;flex-wrap:wrap;gap:10px;padding:14px 20px;font-family:var(--font-mono);font-size:.7rem;letter-spacing:.1em;text-transform:uppercase;color:#8a8a8a">
+    <span>&copy; 2026 ZERO TEMP MAIL &middot; BRUTALIST TEMPLATE</span>
+    <span>API BY @DevZeron &middot; t.me/CodeDevZeron &middot; VERCEL + FIREBASE</span>
+  </div>
+</footer>
+<style>footer a{color:#cfcbc0;text-decoration:none;display:block;font-family:var(--font-mono);font-size:.8rem;padding:3px 0}footer a:hover{color:var(--red)}</style>
+
+<style>
+/* extra template css */
+.soft{font-family:var(--font-mono);font-size:.78rem;letter-spacing:.12em;color:#5b564b;display:inline-block;transform:translateY(-6px);margin-left:14px}
+.pg-left,.pg-right{padding:26px 20px}
+.pg-title{font-family:var(--font-display);text-transform:uppercase;font-size:1.35rem;letter-spacing:-.01em;color:var(--yellow)}
+.pg-sub{font-family:var(--font-mono);font-size:.7rem;letter-spacing:.1em;color:#9aa0a0;text-transform:uppercase;margin:6px 0 18px}
+.fchip{border:2px solid #3a3a3a;background:transparent;color:#cfcfcf;font-family:var(--font-mono);font-size:.72rem;text-transform:uppercase;letter-spacing:.08em;padding:5px 10px;cursor:pointer}
+.fchip.on{background:var(--yellow);color:var(--ink);border-color:var(--ink)}
+.fchip:hover{border-color:var(--yellow)}
+.pg-link{border:2px solid #2c2c2c;background:#151515;color:#dcdcdc;font-family:var(--font-mono);font-size:.72rem;padding:6px 10px;cursor:pointer}
+.pg-link.on{background:var(--red);border-color:var(--ink);color:#fff;box-shadow:3px 3px 0 #000}
+.pg-link:hover{border-color:var(--yellow)}
+.param-box{border:2px solid #3a3a3a;padding:12px;margin-bottom:12px;background:#121212}
+.param-label{display:block;font-family:var(--font-mono);font-size:.7rem;letter-spacing:.12em;text-transform:uppercase;color:var(--yellow);margin-bottom:6px}
+.pg-input{width:100%;background:#0c0c0c;border:2px solid #3a3a3a;color:#eee;font-family:var(--font-mono);font-size:.85rem;padding:9px 11px}
+.pg-input:focus{outline:3px solid var(--yellow);outline-offset:0;border-color:transparent}
+.req-line{font-family:var(--font-mono);font-size:.72rem;color:#8a8f90;word-break:break-all;line-height:1.5}
+.btn-run{font-family:var(--font-mono);font-weight:700;text-transform:uppercase;letter-spacing:.12em;font-size:.85rem;border:var(--bw) solid var(--ink);box-shadow:4px 4px 0 var(--ink);color:var(--ink);background:var(--green);padding:12px 22px;cursor:pointer}
+.btn-run:active{transform:translate(4px,4px);box-shadow:0 0 0 #000}
+.pg-out{flex:1;display:flex;flex-direction:column;min-height:340px;border:var(--bw) solid var(--ink);background:#0c0c0c}
+.pg-out-head{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:10px 14px;border-bottom:2px solid #2c2c2c;font-family:var(--font-mono);font-size:.7rem;text-transform:uppercase;letter-spacing:.1em;color:#8a8f90}
+.pg-out-body{flex:1;overflow:auto;padding:14px;font-family:var(--font-mono);font-size:.82rem;line-height:1.55;white-space:pre-wrap;word-break:break-word;min-height:280px;color:#e8e3d7}
+.pg-out-body .sp{display:inline-block;border:2px solid var(--ink);padding:1px 6px;font-size:.7rem}
+.sp.ok{background:#12b84a;color:var(--ink)}
+.sp.err{background:var(--red);color:#fff}
+.copy-btn{font-family:var(--font-mono);font-size:.68rem;text-transform:uppercase;background:#2a2a2a;border:1px solid #444;color:#ccc;padding:4px 8px;cursor:pointer}
+.copy-btn:hover{border-color:var(--yellow);color:var(--yellow)}
+.hk{color:var(--yellow)}
+.hs{color:#4ff07a}
+.hb{color:#ff6a5e}
+.hn{color:#ffb86c}
+.codeblock{background:var(--ink);color:#c9f7d6;font-family:var(--font-mono);font-size:.8rem;padding:18px;border:var(--bw) solid var(--ink);box-shadow:var(--shadow);overflow-x:auto;line-height:1.6;white-space:pre}
+.reg-card{background:var(--surface);border:var(--bw) solid var(--ink);box-shadow:var(--shadow);padding:24px}
+.reg-card h3{font-family:var(--font-display);text-transform:uppercase;font-size:1.2rem;margin-top:12px}
+.reg-card ol li{display:flex;align-items:flex-start;gap:10px;padding:10px 0;border-top:2px dashed var(--ink);font-size:.93rem}
+.reg-form{background:var(--ink);color:#e8e6d7;border:var(--bw) solid var(--ink);box-shadow:var(--shadow);padding:24px;margin:0}
+.reg-form h3{font-family:var(--font-display);text-transform:uppercase;font-size:1.15rem}
+.reg-form label{display:block;font-family:var(--font-mono);font-size:.7rem;letter-spacing:.12em;text-transform:uppercase;color:var(--yellow);margin:16px 0 6px}
+.reg-form input{width:100%;background:#0c0d0d;border:2px solid #3a3a3a;color:#eee;font-family:var(--font-mono);font-size:.9rem;padding:10px 12px}
+.reg-form input:focus{outline:3px solid var(--yellow);outline-offset:0;border-color:transparent}
+.reg-btn{width:100%;margin-top:20px;font-family:var(--font-mono);font-weight:700;text-transform:uppercase;letter-spacing:.12em;font-size:.85rem;background:var(--red);color:#fff;border:var(--bw) solid #000;box-shadow:4px 4px 0 #000;padding:13px;cursor:pointer}
+.reg-btn:active{transform:translate(4px,4px);box-shadow:none}
+.register-msg{margin-top:14px;font-family:var(--font-mono);font-size:.78rem;border:2px solid #fff;padding:10px;word-break:break-all}
+.register-msg.ok{border-color:#4ff07a;color:#4ff07a}
+.register-msg.err{border-color:var(--red);color:#ff7a63}
+.toast{position:fixed;bottom:20px;left:50%;transform:translate(-50%,140%);background:var(--ink);color:var(--bg);border:2px solid var(--ink);box-shadow:5px 5px 0 var(--ink);font-family:var(--font-mono);font-size:.8rem;padding:12px 18px;z-index:100;transition:transform .18s linear;max-width:90vw}
+.toast.show{transform:translate(-50%,0)}
+.scroll-top{position:fixed;right:16px;bottom:16px;width:46px;height:46px;background:var(--yellow);border:var(--bw) solid var(--ink);box-shadow:var(--shadow-sm);font-size:1.2rem;cursor:pointer;z-index:50;display:grid;place-items:center}
+.scroll-top:active{transform:translate(3px,3px);box-shadow:none}
+.steps{counter-reset:st}
+.steps b{font-family:var(--font-mono)}
+#getkey > div{display:grid;grid-template-columns:1fr}
+@media(min-width:900px){#getkey > div{grid-template-columns:1fr 1fr;align-items:stretch}}
+#getkey > div > div{padding:20px}
+@media(max-width:899px){#getkey > div > div{padding:16px 20px 20px}}
+@media(min-width:900px){#getkey > div > div:nth-child(2){border-left:var(--bw) solid var(--ink)}}
+@media(max-width:899px){.pg-left,.pg-right{padding:20px 12px}.pg-left{border-bottom:var(--bw) solid var(--ink)}}
+thead th{border:var(--bw) solid var(--ink)}
+</style>
+
+<!-- CONFIG DRAWER -->
+<div class="config-backdrop" id="cfgBackdrop"></div>
+<aside class="config" id="config" aria-label="Configuration">
+  <div class="config-head"><h3>CONFIG</h3><button id="btnCloseCfg" aria-label="Close config">&#215;</button></div>
+  <div class="config-body">
+    <p style="font-size:.85rem;color:#2e2a23">Template er shudhu duita jinis set korei ready. <code>SAVE</code> chapon korun &mdash; browser e save thakbe (localStorage).</p>
+    <label for="cfgBase">API BASE URL</label>
+    <input id="cfgBase" type="url" placeholder="https://dev-zeron-temp-gmail-api-v1.vercel.app" spellcheck="false" />
+    <div class="hint">Official DevZeron host, athoba nijer deploy er URL. Sesh e slash ( / ) thakbe na.</div>
+    <label for="cfgKey">API KEY</label>
+    <input id="cfgKey" type="text" placeholder="key_xxxxxxxx" spellcheck="false" autocomplete="off" />
+    <div class="hint">Key e <b>key_</b> prefix thakbe. End-user o nije ekhane set korte parbe.</div>
+    <div class="key-state"><span class="dot" id="cfgDot"></span><span id="cfgKeyLabel">No key set</span><button id="btnForgetKey">&#215; forget</button></div>
+    <button class="btn-yellow" id="cfgSave">SAVE CONFIG</button>
+  </div>
+</aside>
+<div class="toast" id="toast"></div>
+<button class="scroll-top" id="scrollTop" aria-label="Back to top">&#8593;</button>
+
+<script src="app.js"></script>
+</body>
+</html>
