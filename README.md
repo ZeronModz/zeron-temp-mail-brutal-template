@@ -4,6 +4,17 @@ Year: 2026 · Design: Neo-Brutalism (tactile brutalism) · Powered by the **DevZ
 
 Single-file frontend template. Kono server / build system dorkar nei — folder ta je kono static host e drop kore deploy.
 
+## One-Click Deploy
+
+| Host | Button |
+|---|---|
+| **Vercel** | [![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https://github.com/ZeronModz/zeron-temp-mail-brutal-template) |
+| **Netlify** | [![Deploy to Netlify](https://www.netlify.com/img/deploy/button.svg)](https://app.netlify.com/start/deploy?repository=https://github.com/ZeronModz/zeron-temp-mail-brutal-template) |
+| **Railway** | [![Deploy on Railway](https://railway.app/button.svg)](https://railway.app/template?template=FpU7vY) |
+
+Live demo: **[zeron-temp-mail-brutal-template.vercel.app](https://zeron-temp-mail-brutal-template.vercel.app)**
+Source: `github.com/ZeronModz/zeron-temp-mail-brutal-template`
+
 ## Quick Start (user: shudhu API key change korlei publish)
 
 **Option A — CONFIG button (no code):**
