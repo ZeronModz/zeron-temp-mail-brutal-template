@@ -1,343 +1,490 @@
-/* ============================================================
-   TEMPLATE CONFIG — PUBLISH KORTE SHUDHU EI DUITA JINIS BADLAN:
-   1) API_BASE -> apnar API URL (official DevZeron host ba nijer
-                  deploy). Shesh e slash ( / ) thakbe na.
-   2) API_KEY  -> apnar key ( key_xxxx ). Khali rakhe dile end-user
-                  config panel diye set korte parbe (localStorage).
-   ============================================================ */
+/* ==================================================================
+   ZERON TEMP MAIL — app.js
+   Full temp-mail client. Server proxy (api/index.js) e env var key
+   thakle user ke kichu dite hoy na. Standalone file e CONFIG key.
+   ================================================================== */
+
 var TEMPLATE_CONFIG = {
   API_BASE: "https://dev-zeron-temp-gmail-api-v1.vercel.app",
-  API_KEY: ""
+  API_KEY: "" // standalone use er jonno (deploy e irrelevant — proxy env var niye newe)
 };
 
-var GROUPS = ["auth","generate","read","manage","system"];
-var ENDPOINTS = {
-  auth: [
-    {id:"register", m:"POST", path:"/api/register", needKey:false,
-     params:[{n:"email",t:"email",ph:"you@gmail.com",ex:"you@gmail.com"},{n:"pass",t:"password",ph:"abcd wxyz 1234 4567",ex:"abcd wxyz 1234 4567"}],
-     desc:"Verify gmail + app password once, get permanent key_xxx", resp:"data.key"},
-    {id:"key", m:"GET", path:"/api/key", needKey:true, params:[],
-     desc:"Check key: gmail, created, last_used", resp:"data.gmail / data.created"},
-    {id:"revoke", m:"GET", path:"/api/revoke", needKey:true, params:[],
-     desc:"Delete key + all stored data instantly", resp:"data.revoked"}
-  ],
-  generate: [
-    {id:"dot", m:"GET", path:"/api/generate/dot", needKey:true, params:[],
-     desc:"Random dot alias — y.ou@gmail.com", resp:"data.email"},
-    {id:"plus", m:"GET", path:"/api/generate/plus", needKey:true, params:[],
-     desc:"Random plus alias — you+8x9zk2@gmail.com", resp:"data.email"},
-    {id:"mixed", m:"GET", path:"/api/generate/mixed", needKey:true, params:[],
-     desc:"Dot or plus alias, random pick", resp:"data.email"},
-    {id:"custom", m:"GET", path:"/api/generate/custom/<tag>", needKey:true,
-     params:[{n:"tag",t:"text",ph:"netflix",ex:"netflix"}],
-     desc:"Custom plus alias — you+netflix@gmail.com", resp:"data.email"},
-    {id:"batch", m:"GET", path:"/api/generate/batch/<count>", needKey:true,
-     query:[{n:"type",t:"select",opts:["mixed","dot","plus"]}],
-     params:[{n:"count",t:"number",ph:"1-25",ex:"3"}],
-     desc:"Generate up to 25 unique aliases in one request", resp:"data.count / data.emails[]"}
-  ],
-  read: [
-    {id:"read", m:"GET", path:"/api/read/<email>", needKey:true,
-     query:[{n:"limit",t:"number",ph:"10",ex:"10"}],
-     params:[{n:"email",t:"email",ph:"you+netflix@gmail.com",ex:"you+netflix@gmail.com"}],
-     desc:"Latest messages for an alias: from, subject, body, attachments", resp:"data.messages[]"},
-    {id:"unread", m:"GET", path:"/api/unread/<email>", needKey:true,
-     query:[{n:"limit",t:"number",ph:"10",ex:"10"}],
-     params:[{n:"email",t:"email",ph:"you+netflix@gmail.com",ex:"you+netflix@gmail.com"}],
-     desc:"Fetch only UNSEEN messages", resp:"data.messages[]"},
-    {id:"search", m:"GET", path:"/api/readby/<email>/<text>", needKey:true,
-     params:[{n:"email",t:"email",ph:"you+netflix@gmail.com",ex:"you+netflix@gmail.com"},{n:"text",t:"text",ph:"verification",ex:"verification"}],
-     desc:"Full-text inbox search like 'code' / 'verification'", resp:"data.messages[]"},
-    {id:"count", m:"GET", path:"/api/count/<email>", needKey:true,
-     params:[{n:"email",t:"email",ph:"you+netflix@gmail.com",ex:"you+netflix@gmail.com"}],
-     desc:"Total + unread counts per alias", resp:"data.total / data.unread"}
-  ],
-  manage: [
-    {id:"delete", m:"GET", path:"/api/delete/<uid>", needKey:true,
-     params:[{n:"uid",t:"number",ph:"12345",ex:"12345"}],
-     desc:"Move a message to Trash", resp:"data.action = trash"},
-    {id:"markread", m:"GET", path:"/api/markread/<uid>", needKey:true,
-     params:[{n:"uid",t:"number",ph:"12345",ex:"12345"}],
-     desc:"Mark a message as read", resp:"data.read = true"},
-    {id:"markunread", m:"GET", path:"/api/markunread/<uid>", needKey:true,
-     params:[{n:"uid",t:"number",ph:"12345",ex:"12345"}],
-     desc:"Mark a message as unread", resp:"data.read = false"}
-  ],
-  system: [
-    {id:"health", m:"GET", path:"/api/health", needKey:false, params:[],
-     desc:"Public — server + firebase status / uptime", resp:"data.status / data.uptime_seconds"},
-    {id:"info", m:"GET", path:"/api/info", needKey:false, params:[],
-     desc:"Public — endpoint list + version", resp:"data.endpoints"}
-  ]
-};
+var REFRESH_MS = 15000;
 
-var C="", filterKey="auth", lastOut="";
+var store = { addr:"", seen:{}, known:{}, base:"", key:"", auto:true, sound:false };
+try{
+  var _raw = localStorage.getItem("zmail");
+  if (_raw) store = Object.assign(store, JSON.parse(_raw));
+}catch(e){}
+
+function persist(){ try{ localStorage.setItem("zmail", JSON.stringify(store)); }catch(e){} }
+
+function stateNow(){
+  return {
+    base: (store.base || TEMPLATE_CONFIG.API_BASE).replace(/\/+$/,""),
+    key: store.key || TEMPLATE_CONFIG.API_KEY || ""
+  };
+}
+
+function arr(key){ store[key][store.addr] = store[key][store.addr] || []; return store[key][store.addr]; }
+function seen(){ return arr("seen"); }
+function known(){ return arr("known"); }
+function has(a,b){ return a.indexOf(b) >= 0; }
+
+/* ---------------- utils ---------------- */
+function esc(s){ return String(s==null?"":s).replace(/[&<>"']/g,function(c){ return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]; }); }
+
+// API path e email plain @/+ e thakte hobe (encoded %40 server reject kore).
+// So only truly unsafe chars encode, email chars (letters digits . _ @ + -) raw thakbe.
+function pathEnc(s){ return String(s).replace(/[^A-Za-z0-9._@+\-]/g, function(c){ return encodeURIComponent(c); }); }
 
 function $(id){ return document.getElementById(id); }
-function esc(s){ return String(s==null?"":s).replace(/[&<>"']/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c];}); }
-function toast(m){ var t=$("toast"); t.textContent="! "+m; t.classList.add("show"); clearTimeout(t._h); t._h=setTimeout(function(){t.classList.remove("show");},2600); }
-function masked(k){ return !k?"none":(k.length>16?k.slice(0,6)+"…"+k.slice(-4):k); }
-function copyTxt(txt){
-  function fb(){ var ta=document.createElement("textarea"); ta.value=txt; document.body.appendChild(ta); ta.select(); document.execCommand("copy"); ta.remove(); toast("COPIED"); }
-  if(navigator.clipboard&&navigator.clipboard.writeText){ navigator.clipboard.writeText(txt).then(function(){toast("COPIED");},fb); }
-  else fb();
+
+var READER_PH = $("readerPh") ? $("readerPh").outerHTML : "";
+
+var toastTimer=null;
+function toast(msg){
+  var t=$("toast"); t.textContent=msg; t.classList.add("show");
+  clearTimeout(toastTimer); toastTimer=setTimeout(function(){ t.classList.remove("show"); },2200);
 }
 
-/* ---- config state ---- */
-var store=(function(){ try{ return JSON.parse(localStorage.getItem("zzer-config")||"null")||{}; }catch(e){ return {}; } })();
-function stateNow(){ return { base:(store.base||TEMPLATE_CONFIG.API_BASE).replace(/\/+$/,""), key:(store.key||TEMPLATE_CONFIG.API_KEY||"") }; }
-var S=stateNow();
-function persist(){ try{ localStorage.setItem("zzer-config",JSON.stringify(store)); }catch(e){} }
-function refreshKeyUI(){
-  $("pgKey").textContent = S.key?masked(S.key):"none";
-  $("pgBase").textContent = S.base;
-  var d=$("cfgDot"); d.className="dot"+(S.key?" ok":"");
-  $("cfgKeyLabel").textContent = S.key?("key: "+masked(S.key)):"No key set";
-  if($("cfgBase")) $("cfgBase").value=S.base;
-  if($("cfgKey")) $("cfgKey").value=S.key||"";
+function fmtWhen(s){
+  if(!s) return "?";
+  var d=new Date(s); if(isNaN(d)) return "?";
+  var df=(Date.now()-d.getTime())/1000;
+  if(df<60) return Math.max(0,Math.round(df))+"s";
+  if(df<3600) return Math.round(df/60)+"m";
+  if(df<86400) return Math.round(df/3600)+"h";
+  if(df<604800) return Math.round(df/86400)+"d";
+  return d.toLocaleDateString("en-GB",{day:"2-digit",month:"short"});
+}
+function fmtFull(s){
+  if(!s) return "—";
+  var d=new Date(s); if(isNaN(d)) return esc(s);
+  return d.toLocaleString("en-GB",{weekday:"short",day:"2-digit",month:"short",year:"numeric",hour:"2-digit",minute:"2-digit"});
+}
+function fromShort(f){
+  if(!f) return "UNKNOWN SENDER";
+  var m=String(f).replace(/['"]/g,"").match(/^([^<]+)<(.+)>$/);
+  if(m) return m[1].trim() || m[2].trim();
+  return String(f).trim();
+}
+function preview(m){
+  var b=(m.body||"").replace(/\s+/g," ").trim();
+  if(!b) return "<em style='opacity:.6;font-style:normal'>[NO PLAIN-TEXT PREVIEW — HTML MESSAGE]</em>";
+  return b.length>110? b.slice(0,110)+"…" : b;
 }
 
-/* ---- syntax highlight (operates on fully-escaped text; JSON quotes are &quot;) ---- */
-function highlightJson(raw){
-  var line=esc(raw);
-  line=line.replace(/(&quot;)((?:(?!&quot;).)*?)(&quot;)(\s*:)?|\b(true|false)\b|\b(null)\b|(-?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?)/g,
-    function(mq,q1,inner,q2,col,bool,nul,num){
-      if(q1){ return col?'<span class="hk">'+inner+':</span>':'<span class="hs">'+q1+inner+q2+'</span>'; }
-      if(bool) return '<span class="hb">'+bool+'</span>';
-      if(nul) return '<span class="hn" style="color:#c084fc">'+nul+'</span>';
-      if(num) return '<span class="hn">'+num+'</span>';
-      return mq;
+/* ---------------- API (proxy → direct fallback) ---------------- */
+function zapi(path, query, opts){
+  var cfg = stateNow();
+  var bodyData = opts||{};
+  return fetch("/api",{
+    method:"POST",
+    headers:{"Content-Type":"application/json"},
+    body:JSON.stringify({path:path, query:query||{}, data:bodyData.data||null, method:bodyData.method||"GET"})
+  }).then(function(res){
+    if(res.status===404 || res.status===405){ var e=new Error("noproxy"); e.code="NOPROXY"; throw e; }
+    return res.text().then(function(t){
+      var j=null; try{ j=JSON.parse(t); }catch(e){}
+      if(!res.ok) throw new Error("API " + res.status + ((j&&j.message)?": "+j.message:""));
+      if(j && j.status===false) throw new Error(j.message||("API error "+res.status));
+      return j ? j.data : null;
     });
-  return line;
-}
-function sampleOf(n){ return {email:"you+netflix@gmail.com",tag:"netflix",text:"verification",uid:"12345",limit:"5",count:"3"}[n]||""; }
-function sampleFor(n){ return {email:"you+netflix@gmail.com",tag:"netflix",text:"verification",uid:"12345",limit:"5",count:"3"}[n]||""; }
-function findEp(id){ for(var g in ENDPOINTS){ for(var i=0;i<ENDPOINTS[g].length;i++) if(ENDPOINTS[g][i].id===id) return ENDPOINTS[g][i]; } return null; }
-
-/* ---- endpoint matrix ---- */
-function renderMatrix(){
-  var html="";
-  GROUPS.forEach(function(g){
-    html+='<div class="ep-group"><div class="ep-head"><b>'+esc(g.toUpperCase())+'</b><span>'+ENDPOINTS[g].length+'</span></div>';
-    ENDPOINTS[g].forEach(function(ep){
-      html+='<div class="ep-card" data-ep="'+esc(ep.id)+'" role="button" tabindex="0"><span class="mmethod">'+esc(ep.m)+'</span><span class="ep-path">'+esc(ep.path)+'</span><span class="go">→</span></div>';
-    });
-    html+='</div>';
-  });
-  $("epGrid").innerHTML=html;
-  $("epGrid").querySelectorAll(".ep-card").forEach(function(el){
-    function go(){ selectEndpoint(el.getAttribute("data-ep")); document.getElementById("playground").scrollIntoView({behavior:"smooth"}); }
-    el.addEventListener("click",go);
-    el.addEventListener("keydown",function(e){ if(e.key==="Enter"||e.key===" "){e.preventDefault();go();} });
+  }).catch(function(err){
+    if(err && err.code === "NOPROXY") return directApi(path, query, cfg, opts);
+    throw err;
   });
 }
 
-/* ---- playground ---- */
-function selectEndpoint(id){ C=id; syncLinks(); renderParams(); updateReq(); }
-function syncLinks(){
-  var els=$("epList").querySelectorAll(".pg-link");
-  for(var i=0;i<els.length;i++){ els[i].classList.toggle("on",els[i].getAttribute("data-ep")===C); }
-}
-function renderPlaygroundSelects(){
-  var filterEl=$("epFilter"); if(filterEl) filterEl.innerHTML="";
-  GROUPS.forEach(function(g){
-    var b=document.createElement("button"); b.className="fchip"+(filterKey===g||filterKey==="all"?" on":""); b.textContent=g.toUpperCase();
-    b.addEventListener("click",function(){ filterKey=g; renderPlaygroundSelects(); syncLinks(); });
-    if(filterEl) filterEl.appendChild(b);
-  });
-  var list=$("epList"); list.innerHTML="";
-  GROUPS.forEach(function(g){
-    if(filterKey!=="all"&&filterKey!==g) return;
-    ENDPOINTS[g].forEach(function(ep){
-      var b=document.createElement("button"); b.className="pg-link"+(C===ep.id?" on":""); b.setAttribute("data-ep",ep.id); b.textContent=ep.m+" "+ep.path;
-      b.addEventListener("click",function(){ selectEndpoint(ep.id); }); list.appendChild(b);
-    });
-  });
-}
-function fieldBox(p){
-  var wrap=document.createElement("div");
-  wrap.style.border="2px solid #3a3a3a"; wrap.style.padding="12px"; wrap.style.marginBottom="12px"; wrap.style.background="#121212";
-  var lbl=document.createElement("label"); lbl.textContent=p.n;
-  lbl.style.cssText="display:block;font-family:var(--font-mono);font-size:.7rem;letter-spacing:.12em;text-transform:uppercase;color:var(--yellow);margin-bottom:6px";
-  wrap.appendChild(lbl);
-  var inp;
-  if(p.t==="select"){
-    inp=document.createElement("select");
-    (p.opts||[]).forEach(function(o){ var oo=document.createElement("option"); oo.value=o; oo.textContent=o; inp.appendChild(oo); });
-  } else {
-    inp=document.createElement("input");
-    inp.type=(p.t==="password"||p.t==="number")?p.t:"text";
-    inp.placeholder=p.ph||"";
-    inp.value=sampleFor(p.n);
+function directApi(path, query, cfg, opts){
+  if(!cfg.key) throw new Error("No API key. Deploy korle proxy te env ZERON_API_KEY thake. Ar local/static file e CONFIG → STANDALONE KEY dite hoy.");
+  var qs="";
+  if(query){
+    var p=new URLSearchParams();
+    Object.keys(query).forEach(function(k){ var v=query[k]; if(v!==undefined&&v!==null&&v!=="") p.append(k,v); });
+    qs=p.toString()? "?"+p.toString() : "";
   }
-  inp.className="pg-input";
-  inp.style.cssText="width:100%;background:#0c0c0c;border:2px solid #3a3a3a;color:#eee;font-family:var(--font-mono);font-size:.85rem;padding:9px 11px";
-  inp.addEventListener("input",updateReq);
-  inp.addEventListener("blur",function(){ inp.value=inp.value||sampleFor(p.n); updateReq(); });
-  wrap.appendChild(inp);
-  return wrap;
+  return fetch(cfg.base+"/api/"+path+qs,{headers:{"Authorization":"Bearer "+cfg.key}})
+    .then(function(res){ return res.text().then(function(t){
+      var j=null; try{ j=JSON.parse(t); }catch(e){}
+      if(!res.ok) throw new Error("API " + res.status + ((j&&j.message)?": "+j.message:""));
+      if(j && j.status===false) throw new Error(j.message||("API error "+res.status));
+      return j ? j.data : null;
+    }); });
 }
-function renderParams(){
-  var ep=findEp(C), box=$("paramBox"); box.innerHTML="";
-  if(!ep) return;
-  if(ep.needKey&&!S.key){
-    box.innerHTML='<div style="border:2px solid #ff2a00;padding:12px;font-family:var(--font-mono);font-size:.75rem;color:#ff9a88">NO KEY YET → <a href="#getkey" style="color:#fff;text-decoration:underline">GET YOUR KEY</a> / CONFIG panel.</div>';
-  }
-  (ep.query||[]).forEach(function(p){ box.appendChild(fieldBox(p)); });
-  (ep.params||[]).forEach(function(p){ box.appendChild(fieldBox(p)); });
-  if((ep.query&&ep.query.length)||(ep.params&&ep.params.length)){
-    var h=document.createElement("div");
-    h.textContent="→ "+ep.desc;
-    h.style.cssText="margin-top:12px;border-top:2px solid #2c2c2c;padding-top:10px;font-family:var(--font-mono);font-size:.68rem;color:#6d7272";
-    box.appendChild(h);
-  }
-}
-function pgVal(n){ var el=$("p-"+n); return el?el.value.trim():""; }
-function buildUrl(){
-  var ep=findEp(C), url=S.base+ep.path, qs=[];
-  (ep.params||[]).forEach(function(p){ url=url.replace("<"+p.n+">",encodeURIComponent(pgVal(p.n)||p.ex||"")); });
-  (ep.query||[]).forEach(function(p){ var v=pgVal(p.n); if(v) qs.push(p.n+"="+encodeURIComponent(v)); });
-  if(qs.length) url+="?"+qs.join("&");
-  return url;
-}
-function updateReq(){
-  var ep=findEp(C); if(!ep) return;
-  var url=S.base+ep.path, qs=[];
-  (ep.params||[]).forEach(function(p){ url=url.replace("<"+p.n+">",encodeURIComponent(pgVal(p.n)||p.ex||"")); });
-  (ep.query||[]).forEach(function(p){ var v=pgVal(p.n); if(v) qs.push(p.n+"="+encodeURIComponent(v)); });
-  var label=esc(url.replace(/\?.*$/,""))+(qs.length?esc("?"+qs.join("&")):"");
-  var hh=(ep.needKey&&S.key)?'<br><b style="color:#4ff07a">Authorization: Bearer </b>'+masked(S.key):'<br><span style="color:#6a7070">no key required</span>';
-  $("reqUrl").innerHTML='<b style="color:var(--yellow)">'+esc(ep.m)+'</b> '+label+hh;
-}
-function setLoading(on){
-  var b=$("btnRun"); b.disabled=on;
-  b.textContent=on?"WAIT…":"RUN →";
-  if(on){ b.style.background="#9aa0a0"; } else { b.style.background="var(--green,#46f06a)"; }
-}
-var lastOut="",lastHtml="";
-async function run(){
-  var ep=findEp(C); if(!ep) return;
-  if(ep.needKey&&!S.key){ outPlain("// ERROR \u2014 set your API key in CONFIG (CONFIG button upor) age"); toast("Set your API key first"); return; }
-  var t0=Date.now(); setLoading(true);
-  var url=buildUrl(), opts={method:ep.m,headers:{}};
-  if(ep.needKey) opts.headers["Authorization"]="Bearer "+S.key;
-  if(ep.m==="POST"){ opts.headers["Content-Type"]="application/json"; opts.body=JSON.stringify({email:pgVal("email"),pass:pgVal("pass")}); }
-  var meta=$("outMeta"); meta.textContent="FETCHING…";
+
+/* ---------------- sound ---------------- */
+var AC=null;
+function beep(){
+  if(!store.sound) return;
   try{
-    var res=await fetch(url,opts);
-    var text=await res.text(), ms=Date.now()-t0;
-    var pretty; try{ pretty=JSON.stringify(JSON.parse(text),null,2); }catch(e){ pretty=text; }
-    meta.innerHTML=res.status+' <span class="sp '+(res.ok?"ok":"err")+'">'+(res.ok?"OK":"ERR")+'</span> · '+ms+"ms";
-    outJson(pretty);
-  }catch(err){
-    meta.textContent="FAIL · "+(Date.now()-t0)+"ms";
-    outPlain("// "+err.message);
-  }finally{ setLoading(false); }
+    if(!AC){ AC=new (window.AudioContext||window.webkitAudioContext)(); }
+    var o=AC.createOscillator(), g=AC.createGain();
+    o.type="square"; o.frequency.value=920;
+    g.gain.setValueAtTime(0.001,AC.currentTime);
+    g.gain.exponentialRampToValueAtTime(0.16,AC.currentTime+0.012);
+    g.gain.exponentialRampToValueAtTime(0.001,AC.currentTime+0.28);
+    o.connect(g); g.connect(AC.destination);
+    o.start(); o.stop(AC.currentTime+0.3);
+  }catch(e){}
 }
-function outJson(txt){ lastOut=txt; $("outBody").innerHTML=highlightJson(txt); }
-function outPlain(txt){ lastOut=txt; $("outBody").innerHTML=esc(txt); }
 
-/* ---- FAQ ---- */
-var FAQS = [
-  ["Why an API key instead of email + password every time?","Sending your Gmail + App Password on every request is a security risk and a pain. Once we verify it, you get a key and only ever send the key. Simpler for you, safer for everyone."],
-  ["Is my App Password stored?","Yes — because that\u2019s how the key works: the server opens IMAP for you. But it\u2019s AES-encrypted before it\u2019s written to Firebase, and only your key can decrypt it server-side. Revoking your key deletes it."],
-  ["What if I don\u2019t have 2-Step Verification?","Google only issues App Passwords when 2-Step Verification is ON. Turn it on first, then create an App Password at myaccount.google.com/apppasswords."],
-  ["Do the aliases really work?","Yes. Gmail treats you+anything@gmail.com and dotted y.ou@gmail.com as the same mailbox. Anything sent to an alias shows up when you read your base address."],
-  ["How do I revoke my key?","Call GET /api/revoke with the key in the Authorization header. The key and your stored data are removed instantly."],
-  ["Is this really free?","Yes — Vercel free tier + Firebase free tier. No credit card, no hidden quota."],
-  ["How do I publish this template with MY key?","Open the CONFIG button (top-right single) and paste your key, or edit the TEMPLATE_CONFIG object at the top of app.js. Then drop the folder on any static host (Vercel / Netlify / GitHub Pages) — done."]
-];
-function renderFaq(){
-  var box=$("faqList"); box.innerHTML="";
-  FAQS.forEach(function(f,i){
-    var item=document.createElement("div"); item.className="faq-item";
-    item.style.cssText="border-top:var(--bw) solid var(--ink)";
-    var q=document.createElement("button"); q.className="faq-q"; q.setAttribute("aria-expanded","false");
-    q.style.cssText="width:100%;text-align:left;background:var(--bg);border:0;font:inherit;font-weight:700;padding:18px 20px;display:flex;justify-content:space-between;align-items:center;gap:10px;cursor:pointer";
-    var txt=document.createElement("span"); txt.textContent=f[0];
-    var arr=document.createElement("span"); arr.textContent="+"; arr.className="q-arrow"; arr.style.cssText="font-family:var(--font-mono);border:2px solid var(--ink);width:30px;height:30px;display:grid;place-items:center;flex:none;transition:transform .12s linear";
-    q.appendChild(txt); q.appendChild(arr);
-    var a=document.createElement("div"); a.className="faq-a"; a.style.cssText="max-height:0;overflow:hidden;transition:max-height .2s linear";
-    var inner=document.createElement("div"); inner.className="faq-a-inner"; inner.style.cssText="padding:0 20px 18px;font-size:.95rem;color:#2e2a23;max-width:840px"; inner.textContent=f[1];
-    a.appendChild(inner);
-    item.appendChild(q); item.appendChild(a); box.appendChild(item);
-    q.addEventListener("click",function(){ var open=item.classList.toggle("open"); q.setAttribute("aria-expanded",open? "true":"false"); arr.textContent=open?"−":"+"; a.style.maxHeight=open?a.scrollHeight+"px":"0"; });
+/* ---------------- state ---------------- */
+var inbox = [];           // current visible list
+var currentMsg = null;    // open msg object
+var searchQ = "";
+var busyNewGenerating = false;
+
+function setListState(text){ $("listState").textContent = text; }
+function setAddr(v, metaTxt){
+  $("addrMail").textContent = v || "--";
+  $("addrMeta").textContent = metaTxt || "";
+}
+
+function updateStats(){
+  $("stTotal").textContent = inbox.length;
+  $("stUnread").textContent = inbox.filter(function(m){ return !has(seen(), String(m.uid)); }).length;
+  if(searchQ){ setListState("SEARCH: \"" + searchQ + "\" (" + inbox.length + ")"); }
+}
+
+/* ---------------- render inbox ---------------- */
+function renderList(){
+  var ul=$("msgList"); ul.innerHTML="";
+  var wrap=$("listWrap");
+  wrap.classList.remove("state-loading");
+  wrap.classList.toggle("state-empty", inbox.length===0);
+
+  inbox.forEach(function(m){
+    var uid=String(m.uid);
+    var unread = !has(seen(), uid);
+    var isNew  = !has(known(), uid);
+    var li=document.createElement("li");
+    li.className="msg" + (unread?" unread":"");
+    li.dataset.uid=uid;
+    li.innerHTML =
+      '<span class="msg-dot" aria-hidden="true"></span>' +
+      '<div class="msg-main">' +
+        '<div class="msg-from">' + esc(fromShort(m.from)) + '</div>' +
+        '<div class="msg-subj">' + esc(m.subject||"(no subject)") + '</div>' +
+        '<div class="msg-prev">' + preview(m) + '</div>' +
+      '</div>' +
+      '<div class="msg-side">' +
+        '<span class="msg-time">' + fmtWhen(m.date) + '</span>' +
+        (isNew? '<span class="msg-new">NEW</span>':'') +
+        '<button class="msg-del" type="button" title="Delete" aria-label="Delete message">✕</button>' +
+      '</div>';
+    ul.appendChild(li);
+  });
+  updateStats();
+}
+
+function showLoading(){
+  var wrap=$("listWrap");
+  wrap.classList.remove("state-empty");
+  wrap.classList.add("state-loading");
+  setListState("LOADING…");
+}
+
+/* ---------------- inbox fetch ---------------- */
+function refreshInbox(silent, opts){
+  if(!store.addr){ return Promise.resolve(); }
+  opts = opts || {};
+  var path = searchQ ? "readby/" + pathEnc(store.addr) + "/" + pathEnc(searchQ)
+                     : "read/" + pathEnc(store.addr);
+  var query = { limit: "25" };
+  if(!silent) showLoading();
+  return zapi(path, query)
+    .then(function(d){
+      var msgs = (d && d.messages) ? d.messages : [];
+      var newArrivals = [];
+      msgs.forEach(function(m){
+        var uid=String(m.uid);
+        if(!has(known(), uid)){ known().push(uid); newArrivals.push(m); }
+      });
+      persist();
+      inbox = msgs;
+      renderList();
+      if(!silent) setListState(searchQ? "SEARCH RESULT ("+msgs.length+")" : "LIVE · REFRESHED");
+      return {msgs:msgs, fresh:newArrivals};
+    })
+    .then(function(r){
+      if(r.fresh.length && silent && !opts.noBeep){
+        beep();
+        toast("NEW MAIL — " + r.fresh.length + " message" + (r.fresh.length>1?"s":""));
+      }
+    })
+    .catch(function(err){
+      if(!silent){
+        setListState("ERROR");
+        $("listWrap").classList.remove("state-loading");
+        $("listWrap").classList.toggle("state-empty", inbox.length===0);
+        toast(err.message||"API error");
+      }
+    });
+}
+
+/* ---------------- generate ---------------- */
+function generateNew(){
+  if(busyNewGenerating) return;
+  busyNewGenerating=true;
+  $("btnNew").disabled=true;
+  setAddr("GENERATING…", "FETCHING A FRESH ALIAS…");
+  setListState("GENERATING ADDRESS…");
+  zapi("generate/mixed",{}).then(function(d){
+    var addr = d && d.email;
+    if(!addr) throw new Error("No email returned");
+    store.addr = addr;
+    store.seen[addr] = store.seen[addr] || [];
+    store.known[addr] = store.known[addr] || [];
+    persist();
+    setAddr(addr, "CREATED " + new Date().toLocaleTimeString("en-GB",{hour:"2-digit",minute:"2-digit"}));
+    inbox=[];
+    renderList();
+    return refreshInbox(true, {noBeep:true});
+  }).then(function(){
+    setListState(store.auto? "LIVE · AUTO-REFRESH "+(REFRESH_MS/1000)+"s" : "REFRESHED");
+    toast("NEW ADDRESS READY");
+  }).catch(function(err){
+    toast(err.message||"Generate failed");
+    setAddr("--", "FAILED — CHECK CONFIG / KEY");
+    setListState("ERROR");
+  }).finally(function(){
+    busyNewGenerating=false;
+    $("btnNew").disabled=false;
   });
 }
 
-/* ---- sample response ---- */
-function renderSample(){
-  var sample={
-    "status": true,
-    "message": "Messages appear",
-    "Api_By": "@DevZeron",
-    "Tg_Channel": "t.me/CodeDevZeron",
-    "data": {"email":"you+netflix@gmail.com","count":1,"messages":[{"uid":"12345","from":"Netflix <info@netflix.com>","subject":"code 482913","body":"Use 482913 to verify.","attachments":[]}]}
-  };
-  $("sampleJson").innerHTML=highlightJson(JSON.stringify(sample,null,2));
+/* ---------------- copy ---------------- */
+function copyAddress(){
+  var txt=$("addrMail").textContent;
+  if(!txt || txt==="--") return;
+  var done=function(){ toast("ADDRESS COPIED"); flash($("btnCopy"),"copied"); };
+  if(navigator.clipboard && navigator.clipboard.writeText){
+    navigator.clipboard.writeText(txt).then(done).catch(function(){ fallbackCopy(txt); done(); });
+  } else { fallbackCopy(txt); done(); }
+}
+function fallbackCopy(t){
+  var ta=document.createElement("textarea"); ta.value=t; ta.style.position="fixed"; ta.style.left="-9999px";
+  document.body.appendChild(ta); ta.focus(); ta.select();
+  try{ document.execCommand("copy"); }catch(e){}
+  document.body.removeChild(ta);
+}
+function flash(el,cls){ el.classList.add(cls); setTimeout(function(){ el.classList.remove(cls); },900); }
+
+/* ---------------- reader ---------------- */
+function readerHTML(m){
+  var unread = !has(seen(), String(m.uid));
+  return '<div class="reader-head">' +
+      '<span class="rtitle">MESSAGE</span>' +
+      '<div class="reader-actions">' +
+        '<button class="ract back-btn" data-act="back" type="button">← INBOX</button>' +
+        '<button class="ract" data-act="unread" type="button">UNREAD</button>' +
+        '<button class="ract" data-act="del" type="button" title="Delete">✕ DELETE</button>' +
+      '</div>' +
+    '</div>' +
+    '<div class="reader-body">' +
+      '<h2 class="reader-subj">' + esc(m.subject||"(NO SUBJECT)") + '</h2>' +
+      '<div class="reader-meta">' +
+        '<div><b>FROM</b> ' + esc(m.from) + '</div>' +
+        (m.to? '<div><b>TO</b> ' + esc(m.to) + '</div>':'') +
+        '<div><b>DATE</b> ' + fmtFull(m.date) + '</div>' +
+        (m.uid? '<div><b>UID</b> ' + esc(m.uid) + '</div>':'') +
+      '</div>' +
+      (m.body && String(m.body).trim()
+        ? '<div class="reader-bodytext">' + esc(m.body) + '</div>'
+        : '<div class="reader-nobody">NO PLAIN-TEXT BODY FOR THIS MESSAGE.<br>HTML-ONLY EMAIL — CHECK IN YOUR MAIL APP.</div>') +
+      (m.attachments && m.attachments.length ? '<div class="reader-nobody" style="margin-top:10px">ATTACHMENTS: ' + esc(m.attachments.join(", ")) + '</div>' : '') +
+    '</div>';
 }
 
-/* ---- health check ---- */
-function healthCheck(){
-  var dot=$("statusDot"), txt=$("statusTxt");
-  fetch(S.base+"/api/health",{method:"GET"}).then(function(res){ return res.json().catch(function(){return null;}); }).then(function(j){
-    var ok=!!(j&&j.status);
-    dot.className="status-dot"+(ok?" on":"");
-    var fb=j&&j.data&&j.data.firebase?(j.data.firebase):"unknown";
-    txt.textContent=ok?("SERVER ONLINE · "+fb):"SERVER RESPONDED BUT OFFLINE";
-    txt.title=(j&&j.message)||"";
-  }).catch(function(e){ dot.className="status-dot"; txt.textContent="CAN\u2019T REACH API — check base URL"; });
+function markLocalRead(m, read){
+  var uid=String(m.uid), s=seen();
+  var i=s.indexOf(uid);
+  if(read && i<0){ s.push(uid); }
+  if(!read && i>=0){ s.splice(i,1); }
+  persist();
 }
 
-/* ---- register ---- */
-function register(){
-  var btn=$("regBtn"), msg=$("regMsg");
-  btn.disabled=true; btn.textContent="VERIFYING…";
-  msg.hidden=false; msg.className="register-msg"; msg.textContent="Connecting imap.gmail.com & verifying…";
-  fetch(S.base+"/api/register",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({email:$("regEmail").value.trim(),pass:$("regPass").value.replace(/ /g,"")})})
-  .then(function(res){ return res.text().then(function(t){return {res:res,txt:t};}); })
-  .then(function(r){
-    var ok=false;
-    try{ var j=JSON.parse(r.txt); ok=!!j.status; }catch(e){ j={message:r.txt}; }
-    if(ok&&j.data&&j.data.key){
-      store.key=j.data.key; persist(); S=stateNow(); refreshKeyUI();
-      msg.className="register-msg ok"; msg.innerHTML='<b>KEY ISSUED ✓</b><br>'+esc(j.data.key)+'<br>Auto-saved to this website. Use it in the playground!';
-      toast("Key saved");
-    } else {
-      msg.className="register-msg err"; msg.textContent="✗ "+(j&&j.message?j.message:r.txt);
-    }
-  })
-  .catch(function(e){ msg.className="register-msg err"; msg.textContent="✗ Network error: "+e.message; })
-  .finally(function(){ btn.disabled=false; btn.textContent="GET MY KEY"; });
+function openMsg(m){
+  currentMsg = m;
+  markLocalRead(m, true);
+  // update list highlight + unread badge
+  var lis=$("msgList").querySelectorAll(".msg");
+  Array.prototype.forEach.call(lis, function(li){
+    li.classList.toggle("unread", !has(seen(), li.dataset.uid));
+    li.classList.toggle("sel", li.dataset.uid===String(m.uid));
+  });
+  updateStats();
+
+  var html = readerHTML(m);
+  var aside=$("reader"); aside.innerHTML=html;
+  wireReader(aside, m);
+
+  if(window.innerWidth < 880){
+    var ovl=$("readerOvl"); ovl.innerHTML=html; ovl.hidden=false;
+    wireReader(ovl, m);
+    document.body.style.overflow="hidden";
+  }
 }
 
-/* ---- config drawer ---- */
-function openCfg(){ $("config").classList.add("open"); $("cfgBackdrop").classList.add("show"); refreshKeyUI(); }
-function closeCfg(){ $("config").classList.remove("open"); $("cfgBackdrop").classList.remove("show"); }
-function saveCfg(){
-  store.base=$("cfgBase").value.trim().replace(/\/+$/,"")||TEMPLATE_CONFIG.API_BASE.replace(/\/+$/,"");
+function wireReader(root, m){
+  root.querySelector("[data-act=back]").addEventListener("click", closeReader);
+  root.querySelector("[data-act=del]").addEventListener("click", function(){ delMsg(m); });
+  root.querySelector("[data-act=unread]").addEventListener("click", function(){ markLocalRead(m,false); toast("MARKED UNREAD"); refreshInbox(true); });
+}
+
+function closeReader(){
+  currentMsg=null;
+  var ovl=$("readerOvl"); ovl.hidden=true; ovl.innerHTML="";
+  document.body.style.overflow="";
+  var aside=$("reader");
+  aside.innerHTML=READER_PH;
+  Array.prototype.forEach.call($("msgList").querySelectorAll(".msg.sel"), function(li){ li.classList.remove("sel"); });
+}
+
+function delMsg(m){
+  if(!currentMsg || currentMsg.uid!==m.uid){ /* still allow */ }
+  try{ zapi("delete/"+encodeURIComponent(m.uid),{}).catch(function(){}); }catch(e){}
+  inbox = inbox.filter(function(x){ return String(x.uid)!==String(m.uid); });
+  var s=seen(), i=s.indexOf(String(m.uid)); if(i>=0) s.splice(i,1);
+  var k=known(), j=k.indexOf(String(m.uid)); if(j>=0) k.splice(j,1);
+  persist();
+  renderList();
+  if(currentMsg && currentMsg.uid===m.uid){ toast("MESSAGE DELETED"); closeReader(); } else { toast("MESSAGE DELETED"); }
+}
+
+/* ---------------- search ---------------- */
+function doSearch(){
+  var v=$("searchInput").value.trim();
+  if(!v){ clearSearch(); return; }
+  searchQ=v;
+  $("btnClear").hidden=false;
+  refreshInbox(false);
+}
+function clearSearch(){
+  if(!searchQ && $("btnClear").hidden) return;
+  searchQ="";
+  $("searchInput").value="";
+  $("btnClear").hidden=true;
+  refreshInbox(false);
+}
+$("searchInput").addEventListener("keydown", function(e){ if(e.key==="Enter") doSearch(); });
+$("btnSearch").addEventListener("click", doSearch);
+$("btnClear").addEventListener("click", clearSearch);
+
+/* ---------------- auto refresh ---------------- */
+var autoTimer=null;
+function armAuto(){
+  clearInterval(autoTimer);
+  if(store.auto) autoTimer=setInterval(function(){ if(!busyNewGenerating) refreshInbox(true); }, REFRESH_MS);
+}
+$("btnAuto").addEventListener("click", function(){
+  store.auto=!store.auto; persist();
+  var b=$("btnAuto"); b.classList.toggle("on",store.auto); b.setAttribute("aria-pressed",store.auto?"true":"false"); b.textContent=store.auto?"ON":"OFF";
+  armAuto();
+  if(store.auto) refreshInbox(true);
+});
+$("btnSound").addEventListener("click", function(){
+  store.sound=!store.sound; persist();
+  var b=$("btnSound"); b.classList.toggle("on",store.sound); b.setAttribute("aria-pressed",store.sound?"true":"false"); b.textContent=store.sound?"ON":"OFF";
+  beep();
+});
+$("btnRefresh").addEventListener("click", function(){
+  var b=this; b.classList.add("busy");
+  refreshInbox(false).finally(function(){ b.classList.remove("busy"); });
+});
+$("btnNew").addEventListener("click", generateNew);
+$("btnCopy").addEventListener("click", copyAddress);
+
+/* list click delegation */
+$("msgList").addEventListener("click", function(e){
+  var del=e.target.closest(".msg-del");
+  if(del){ e.stopPropagation(); delMsg({uid:del.closest(".msg").dataset.uid}); return; }
+  var li=e.target.closest(".msg");
+  if(li){
+    var m=inbox.find(function(x){ return String(x.uid)===li.dataset.uid; });
+    if(m) openMsg(m);
+  }
+});
+
+/* ---------------- config drawer ---------------- */
+function openCfg(){
+  $("cfgBase").value = store.base || TEMPLATE_CONFIG.API_BASE;
+  $("cfgKey").value = store.key || "";
+  renderKeyState();
+  $("config").classList.add("open");
+  $("cfgBackdrop").classList.add("show");
+  document.body.style.overflow="hidden";
+}
+function closeCfg(){
+  $("config").classList.remove("open");
+  $("cfgBackdrop").classList.remove("show");
+  document.body.style.overflow="";
+}
+function renderKeyState(){
+  var ks=$("keyState");
+  var cfg=stateNow();
+  ks.classList.remove("ok","no");
+  if(!cfg.key){
+    ks.classList.add("ok");
+    ks.innerHTML='<span class="dot"></span><span>MODE: PROXY — key in host env var. User key dekhbe na.</span>';
+  } else {
+    ks.classList.add("ok");
+    ks.innerHTML='<span class="dot"></span><span>MODE: STANDALONE — local key active.</span>';
+  }
+}
+$("btnConfig").addEventListener("click", openCfg);
+$("btnCfgClose").addEventListener("click", closeCfg);
+$("cfgBackdrop").addEventListener("click", closeCfg);
+$("btnSaveCfg").addEventListener("click", function(){
+  store.base=$("cfgBase").value.trim().replace(/\/+$/,"");
   store.key=$("cfgKey").value.trim();
-  persist(); S=stateNow();
-  refreshKeyUI(); renderParams(); updateReq();
-  healthCheck(); toast("CONFIG SAVED");
-  closeCfg();
+  persist();
+  renderKeyState();
+  toast("CONFIG SAVED");
+});
+$("btnTestCfg").addEventListener("click", function(){
+  var log=$("cfgLog");
+  log.classList.add("show");
+  log.classList.remove("err");
+  log.textContent="health check…";
+  zapi("health",{}).then(function(d){
+    log.className="cfg-log show";
+    log.textContent="HEALTH: " + ((d&&d.status)||"ok") + "\nTIME: " + ((d&&d.time)||"—") + "\nFIREBASE: " + ((d&&d.firebase)||"—");
+  }).catch(function(err){
+    log.classList.add("err");
+    log.textContent="FAILED: " + err.message;
+  });
+});
+
+/* ---------------- system status ---------------- */
+function healthCheck(){
+  zapi("health",{}).then(function(d){
+    var pill=$("sysPill"); pill.style.display="inline-flex";
+    pill.classList.add("ok"); pill.classList.remove("no");
+    $("sysTxt").textContent="API ONLINE";
+  }).catch(function(){
+    var pill=$("sysPill"); pill.style.display="inline-flex";
+    pill.classList.add("no"); pill.classList.remove("ok");
+    $("sysTxt").textContent="API OFFLINE";
+  });
 }
 
-/* ---- init ---- */
+/* ---------------- init ---------------- */
 function init(){
-  renderMatrix(); renderPlaygroundSelects(); renderFaq(); renderSample();
-  refreshKeyUI();
-  selectEndpoint("mixed");
+  $("btnAuto").textContent = store.auto?"ON":"OFF";
+  $("btnAuto").classList.toggle("on",store.auto);
+  $("btnSound").textContent = store.sound?"ON":"OFF";
+  $("btnSound").classList.toggle("on",store.sound);
+  armAuto();
   healthCheck();
-  $("btnRun").addEventListener("click",run);
-  $("btnFill").addEventListener("click",function(){ renderParams(); updateReq(); });
-  $("btnCopy").addEventListener("click",function(){ if(lastOut) copyTxt(lastOut); });
-  $("btnConfig").addEventListener("click",openCfg);
-  $("btnCloseCfg").addEventListener("click",closeCfg);
-  $("cfgBackdrop").addEventListener("click",closeCfg);
-  $("cfgSave").addEventListener("click",saveCfg);
-  $("btnForgetKey").addEventListener("click",function(){ delete store.key; persist(); S=stateNow(); refreshKeyUI(); toast("Key removed"); });
-  $("regForm").addEventListener("submit",function(e){ e.preventDefault(); register(); });
-  $("scrollTop").addEventListener("click",function(){ window.scrollTo({top:0,behavior:"smooth"}); });
+  if(store.addr){
+    setAddr(store.addr, "LOADING…");
+    refreshInbox(false);
+  } else {
+    generateNew();
+  }
 }
-document.addEventListener("DOMContentLoaded",init);
+
+document.addEventListener("DOMContentLoaded", init);
