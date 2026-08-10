@@ -1,0 +1,5 @@
+{
+  "_comment": "Server-side key fallback for hosts where env vars are annoying. Copy this file to config.json and fill in. Env var ZERON_API_KEY still wins. config.json is gitignored (never commit real keys).",
+  "apiKey": "",
+  "apiBase": "https://dev-zeron-temp-gmail-api-v1.vercel.app"
+}

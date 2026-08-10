@@ -318,7 +318,7 @@ footer{border-top:var(--bw) solid var(--ink);background:var(--bg);margin-top:aut
   </div>
   <div class="config-body">
     <div class="key-state" id="keyState"><span class="dot"></span><span>KEY: server-side (env)</span></div>
-    <p class="hint">Deployed version e API key server env var e thake — user ke kichu dite hoy na. Standalone/local folder e open korle niche key paste koro.</p>
+    <p class="hint">Deployed version e API key server-side (env var / config) e thake — request /api → /api.php proxy e jae. Static file (GitHub Pages etc.) e prottek request browser theke direct jae, tai niche key paste kora lagbe.</p>
 
     <label for="cfgBase">API BASE (OVERRIDE)</label>
     <input id="cfgBase" placeholder="https://dev-zeron-temp-gmail-api-v1.vercel.app" spellcheck="false" />
@@ -326,7 +326,7 @@ footer{border-top:var(--bw) solid var(--ink);background:var(--bg);margin-top:aut
 
     <label for="cfgKey">STANDALONE KEY (OPTIONAL, LOCAL USE)</label>
     <input id="cfgKey" placeholder="key_xxxx (only for opening file directly)" spellcheck="false" autocomplete="off" />
-    <p class="hint">Shudhu corner case: static file without the server proxy. Deploy korleo ei solve hoi na valo onek — proxy e env var e key diye deploy korbe.</p>
+    <p class="hint">Shudhu corner case: pure static host (GitHub Pages / S3), shob proxy endpoint 404. Request browser theke direct upstream API e jae — ei jinish ta lekha thakbe nicher STANDALONE KEY te. Server proxy e deploy korle key kokhon client e ashe na.</p>
 
     <button class="btn-yellow" id="btnSaveCfg" type="button">SAVE CONFIG</button>
     <button class="btn-yellow btn-off" id="btnTestCfg" type="button">⟳ TEST CONNECTION</button>

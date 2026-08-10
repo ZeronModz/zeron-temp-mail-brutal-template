@@ -1,1 +1,7 @@
-.vercel
+.vercel/
+.netlify/
+node_modules/
+.env
+config.json
+.DS_Store
+npm-debug.log*

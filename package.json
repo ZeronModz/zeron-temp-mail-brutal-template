@@ -1,0 +1,16 @@
+{
+  "name": "zeron-temp-mail",
+  "version": "2.1.0",
+  "description": "Real temporary email web app — brutal template. Deploys anywhere (Vercel, Netlify, Cloudflare, Render, Railway, Heroku, Fly, any VPS, shared PHP hosting, static hosts).",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js"
+  },
+  "engines": {
+    "node": ">=14"
+  },
+  "keywords": ["temp-mail", "temp-email", "disposable-email", "brutalist", "zeron"],
+  "license": "MIT",
+  "private": true
+}

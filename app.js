@@ -1,12 +1,16 @@
 /* ==================================================================
    ZERON TEMP MAIL — app.js
-   Full temp-mail client. Server proxy (api/index.js) e env var key
-   thakle user ke kichu dite hoy na. Standalone file e CONFIG key.
+   Full temp-mail client. Server-side proxy (api/index.js | server.js |
+   netlify/functions | functions/ | api.php) e env/config key thakle
+   user ke kichu dite hoy na. Proxy chain: /api → /api.php → direct.
    ================================================================== */
 
 var TEMPLATE_CONFIG = {
   API_BASE: "https://dev-zeron-temp-gmail-api-v1.vercel.app",
-  API_KEY: "" // standalone use er jonno (deploy e irrelevant — proxy env var niye newe)
+  API_KEY: "", // standalone use er jonno (deploy e irrelevant — proxy env var niye newe)
+  // Same-origin proxy candidates, tried in order until one responds.
+  // Vercel/Netlify/Cloudflare/Node server => /api · cPanel/PHP shared host => /api.php
+  PROXY_PATHS: ["/api", "/api.php"]
 };
 
 var REFRESH_MS = 15000;
@@ -75,24 +79,44 @@ function preview(m){
   return b.length>110? b.slice(0,110)+"…" : b;
 }
 
-/* ---------------- API (proxy → direct fallback) ---------------- */
-function zapi(path, query, opts){
-  var cfg = stateNow();
-  var bodyData = opts||{};
-  return fetch("/api",{
-    method:"POST",
-    headers:{"Content-Type":"application/json"},
-    body:JSON.stringify({path:path, query:query||{}, data:bodyData.data||null, method:bodyData.method||"GET"})
+/* ---------------- API (proxy chain → direct fallback) ---------------- */
+// Probes every same-origin proxy in order; a proxy that answers with
+// real JSON is used. 404/405 OR a non-JSON answer (static host serving
+// index.html) both count as "no proxy here" -> next candidate -> direct.
+function noproxy(msg){ var e=new Error(msg||"noproxy"); e.code="NOPROXY"; return e; }
+
+function attemptProxy(endpoint, path, query, bodyData){
+  return fetch(endpoint, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ path: path, query: query||{}, data: (bodyData&&bodyData.data)||null, method: (bodyData&&bodyData.method)||"GET" })
   }).then(function(res){
-    if(res.status===404 || res.status===405){ var e=new Error("noproxy"); e.code="NOPROXY"; throw e; }
     return res.text().then(function(t){
-      var j=null; try{ j=JSON.parse(t); }catch(e){}
+      var j = null; try{ j = JSON.parse(t); }catch(e){}
+      if(!j || res.status===404 || res.status===405 || res.status===501) throw noproxy();
       if(!res.ok) throw new Error("API " + res.status + ((j&&j.message)?": "+j.message:""));
-      if(j && j.status===false) throw new Error(j.message||("API error "+res.status));
+      if(j.status===false) throw new Error(j.message||("API error "+res.status));
       return j ? j.data : null;
     });
   }).catch(function(err){
-    if(err && err.code === "NOPROXY") return directApi(path, query, cfg, opts);
+    if(err && err.code==="NOPROXY") throw noproxy();
+    throw err;
+  });
+}
+
+function tryProxyChain(i, paths, path, query, bodyData){
+  if(i >= paths.length) return Promise.reject(noproxy());
+  return attemptProxy(paths[i], path, query, bodyData).catch(function(err){
+    if(err && err.code==="NOPROXY") return tryProxyChain(i+1, paths, path, query, bodyData);
+    throw err;
+  });
+}
+
+function zapi(path, query, opts){
+  var cfg = stateNow();
+  var paths = TEMPLATE_CONFIG.PROXY_PATHS || ["/api"];
+  return tryProxyChain(0, paths, path, query, opts||{}).catch(function(err){
+    if(err && err.code==="NOPROXY") return directApi(path, query, cfg, opts||{});
     throw err;
   });
 }
